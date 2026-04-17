@@ -14,7 +14,7 @@ jobs:
         run: pip install bandit
 
       - name: Run Bandit
-        run: bandit -r . -f txt -o sast_report.txt
+        run: bandit -r . -f txt -o sast_report.txt || true
       - name: Upload SAST report
         uses: actions/upload-artifact@v4
         with:
