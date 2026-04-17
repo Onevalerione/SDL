@@ -1,17 +1,23 @@
 name: SAST Scan
-on: [push]  # Запуск на push в любую ветку
+
+on:
+  push:
+
 jobs:
   sast:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Run Bandit SAST
-      uses: docker://github.com/helmholtz-analytics/bandit-action  
-      run: |
-        pip install bandit
-        bandit -r . -f json -o bandit-report.json -ll  # -ll: low/medium/high severity
-    - name: Upload SAST report
-      uses: actions/upload-artifact@v4
-      with:
-        name: sast-report
-        path: bandit-report.json
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Bandit
+        run: pip install bandit
+
+      - name: Run Bandit
+        run: bandit -r . -f json -o bandit-report.json
+
+      - name: Upload SAST report
+        uses: actions/upload-artifact@v4
+        with:
+          name: sast-report
+          path: bandit-report.json
