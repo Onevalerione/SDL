@@ -2,9 +2,9 @@ name: DAST Scan
 
 on:
   push:
-    branches: [develop]
+    branches: [feature-branch]
   pull_request:
-    branches: [develop]
+    branches: [feature-branch]
 
 jobs:
   dast:
