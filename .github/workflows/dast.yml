@@ -21,9 +21,14 @@ jobs:
         run: |
           docker run -d --name pr7-app -p 5000:5000 pr7-app
           sleep 15
+          docker ps
+          docker logs pr7-app || true
 
       - name: Check app availability
         run: curl -I http://127.0.0.1:5000 || true
+
+      - name: Add host mapping for ZAP
+        run: echo "127.0.0.1 host.docker.internal" | sudo tee -a /etc/hosts
 
       - name: Run ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.14.0
@@ -36,7 +41,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: zap-report
-          path: report_html.html
+          path: |
+            report_html.html
+            report_json.json
+            report_md.md
 
       - name: Stop app container
         if: always()
