@@ -45,6 +45,12 @@ jobs:
           docker logs pr7-app || true
           exit 1
 
+      - name: Prepare report files
+        run: |
+          touch report_html.html report_json.json report_md.md
+          chmod 666 report_html.html report_json.json report_md.md
+          ls -l report_html.html report_json.json report_md.md
+
       - name: Run ZAP Baseline Scan
         run: |
           docker run --rm \
@@ -53,10 +59,18 @@ jobs:
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
             -t http://pr7-app:5000 \
-            -J /zap/wrk/report_json.json \
-            -w /zap/wrk/report_md.md \
-            -r /zap/wrk/report_html.html \
-            -a
+            -J report_json.json \
+            -w report_md.md \
+            -r report_html.html \
+            -I
+
+      - name: Show generated files
+        if: always()
+        run: |
+          ls -la
+          test -f report_html.html && echo "report_html.html exists"
+          test -f report_json.json && echo "report_json.json exists"
+          test -f report_md.md && echo "report_md.md exists"
 
       - name: Upload ZAP report
         if: always()
