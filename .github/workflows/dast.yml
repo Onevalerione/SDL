@@ -10,11 +10,14 @@ on:
 jobs:
   dast:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Create Docker network
+        run: docker network create zapnet
 
       - name: Build app image
         run: docker build -t pr7-app ./PR7/app
@@ -23,7 +26,7 @@ jobs:
         run: |
           docker run -d \
             --name pr7-app \
-            --add-host=host.docker.internal:host-gateway \
+            --network zapnet \
             -p 5000:5000 \
             pr7-app
           docker ps
@@ -31,25 +34,29 @@ jobs:
       - name: Wait for app
         run: |
           for i in {1..30}; do
-            if curl -fsS http://127.0.0.1:5000 > /dev/null; then
+            if docker run --rm --network zapnet curlimages/curl:8.8.0 \
+              -fsS http://pr7-app:5000 > /dev/null; then
               echo "App is up"
               exit 0
             fi
             echo "Waiting for app..."
             sleep 2
           done
-          echo "App did not start in time"
           docker logs pr7-app || true
           exit 1
 
-      - name: Show app logs
-        run: docker logs pr7-app || true
-
       - name: Run ZAP Baseline Scan
-        uses: zaproxy/action-baseline@v0.14.0
-        with:
-          target: "http://host.docker.internal:5000"
-          cmd_options: "-a"
+        run: |
+          docker run --rm \
+            --network zapnet \
+            -v ${{ github.workspace }}:/zap/wrk/:rw \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py \
+            -t http://pr7-app:5000 \
+            -J /zap/wrk/report_json.json \
+            -w /zap/wrk/report_md.md \
+            -r /zap/wrk/report_html.html \
+            -a
 
       - name: Upload ZAP report
         if: always()
@@ -61,6 +68,12 @@ jobs:
             report_json.json
             report_md.md
 
-      - name: Stop app container
+      - name: Show app logs
         if: always()
-        run: docker rm -f pr7-app || true
+        run: docker logs pr7-app || true
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker rm -f pr7-app || true
+          docker network rm zapnet || true
