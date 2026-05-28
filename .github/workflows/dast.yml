@@ -53,9 +53,9 @@ jobs:
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
             -t http://pr7-app:5000 \
-            -J report_json.json \
-            -w report_md.md \
-            -r report_html.html \
+            -J /zap/wrk/report_json.json \
+            -w /zap/wrk/report_md.md \
+            -r /zap/wrk/report_html.html \
             -a
 
       - name: Upload ZAP report
