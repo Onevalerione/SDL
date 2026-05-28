@@ -10,6 +10,7 @@ on:
 jobs:
   dast:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
@@ -25,13 +26,24 @@ jobs:
             --add-host=host.docker.internal:host-gateway \
             -p 5000:5000 \
             pr7-app
-          sleep 20
           docker ps
-          docker logs pr7-app || true
 
-      - name: Check app availability
+      - name: Wait for app
         run: |
-          curl -v http://127.0.0.1:5000 || true
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:5000 > /dev/null; then
+              echo "App is up"
+              exit 0
+            fi
+            echo "Waiting for app..."
+            sleep 2
+          done
+          echo "App did not start in time"
+          docker logs pr7-app || true
+          exit 1
+
+      - name: Show app logs
+        run: docker logs pr7-app || true
 
       - name: Run ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.14.0
@@ -48,10 +60,6 @@ jobs:
             report_html.html
             report_json.json
             report_md.md
-
-      - name: Show container logs on failure
-        if: failure()
-        run: docker logs pr7-app || true
 
       - name: Stop app container
         if: always()
