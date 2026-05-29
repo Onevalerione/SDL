@@ -33,11 +33,11 @@ jobs:
             -p 5000:5000 \
             pr7-app
 
-          echo "=== docker ps ==="
+          echo "=== docker ps -a ==="
           docker ps -a
 
           echo "=== inspect state ==="
-          docker inspect pr7-app --format='status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} error={{.State.Error}}'
+          docker inspect pr7-app --format='status={{.State.Status}} exit={{.State.ExitCode}} started={{.State.StartedAt}} finished={{.State.FinishedAt}} error={{.State.Error}}' || true
 
           echo "=== app logs ==="
           docker logs pr7-app || true
@@ -53,11 +53,12 @@ jobs:
 
             echo "Waiting for app... attempt $i/30"
             docker ps -a
-            docker inspect pr7-app --format='status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} error={{.State.Error}}' || true
+            docker inspect pr7-app --format='status={{.State.Status}} exit={{.State.ExitCode}} started={{.State.StartedAt}} finished={{.State.FinishedAt}} error={{.State.Error}}' || true
             docker logs pr7-app || true
             sleep 2
           done
 
+          echo "App did not become ready"
           exit 1
 
       - name: Prepare report files
@@ -90,8 +91,11 @@ jobs:
       - name: Show app logs
         if: always()
         run: |
+          echo "=== final docker ps -a ==="
           docker ps -a
-          docker inspect pr7-app --format='status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} error={{.State.Error}}' || true
+          echo "=== final inspect ==="
+          docker inspect pr7-app --format='status={{.State.Status}} exit={{.State.ExitCode}} started={{.State.StartedAt}} finished={{.State.FinishedAt}} error={{.State.Error}}' || true
+          echo "=== final logs ==="
           docker logs pr7-app || true
 
       - name: Cleanup
