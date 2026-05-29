@@ -6,6 +6,10 @@ on:
       - develop
   workflow_dispatch:
 
+concurrency:
+  group: dast-develop-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   dast:
     runs-on: ubuntu-latest
@@ -15,6 +19,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Create Docker network
+        run: docker network create zapnet
+
       - name: Build app image
         run: docker build -t pr7-app ./PR7/app
 
@@ -22,21 +29,35 @@ jobs:
         run: |
           docker run -d \
             --name pr7-app \
+            --network zapnet \
             -p 5000:5000 \
             pr7-app
-          docker ps
+
+          echo "=== docker ps ==="
+          docker ps -a
+
+          echo "=== inspect state ==="
+          docker inspect pr7-app --format='status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} error={{.State.Error}}'
+
+          echo "=== app logs ==="
+          docker logs pr7-app || true
 
       - name: Wait for app
         run: |
           for i in {1..30}; do
-            if curl -fsS http://localhost:5000 > /dev/null; then
+            if docker run --rm --network zapnet curlimages/curl:8.8.0 \
+              -fsS http://pr7-app:5000 > /dev/null; then
               echo "App is up"
               exit 0
             fi
-            echo "Waiting for app..."
+
+            echo "Waiting for app... attempt $i/30"
+            docker ps -a
+            docker inspect pr7-app --format='status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} error={{.State.Error}}' || true
+            docker logs pr7-app || true
             sleep 2
           done
-          docker logs pr7-app || true
+
           exit 1
 
       - name: Prepare report files
@@ -49,11 +70,11 @@ jobs:
       - name: Run ZAP Baseline Scan
         run: |
           docker run --rm \
-            --network host \
+            --network zapnet \
             -v ${{ github.workspace }}/reports:/zap/wrk/:rw \
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
-            -t http://localhost:5000 \
+            -t http://pr7-app:5000 \
             -J report_json.json \
             -w report_md.md \
             -r report_html.html \
@@ -68,9 +89,13 @@ jobs:
 
       - name: Show app logs
         if: always()
-        run: docker logs pr7-app || true
+        run: |
+          docker ps -a
+          docker inspect pr7-app --format='status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} error={{.State.Error}}' || true
+          docker logs pr7-app || true
 
       - name: Cleanup
         if: always()
         run: |
           docker rm -f pr7-app || true
+          docker network rm zapnet || true
