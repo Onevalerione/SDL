@@ -3,7 +3,7 @@ name: SAST Feature Branch
 on:
   push:
     branches:
-      - 'feature/**'
+      - feature-branch
   workflow_dispatch:
 
 jobs:
