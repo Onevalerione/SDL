@@ -1,0 +1,81 @@
+name: DAST Develop Branch
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+jobs:
+  dast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create Docker network
+        run: docker network create zapnet
+
+      - name: Build app image
+        run: docker build -t pr7-app ./PR7/app
+
+      - name: Start app container
+        run: |
+          docker run -d \
+            --name pr7-app \
+            --network zapnet \
+            -p 5000:5000 \
+            pr7-app
+          docker ps
+
+      - name: Wait for app
+        run: |
+          for i in {1..30}; do
+            if docker run --rm --network zapnet curlimages/curl:8.8.0 \
+              -fsS http://pr7-app:5000 > /dev/null; then
+              echo "App is up"
+              exit 0
+            fi
+            echo "Waiting for app..."
+            sleep 2
+          done
+          docker logs pr7-app || true
+          exit 1
+
+      - name: Prepare report files
+        run: |
+          mkdir -p reports
+          touch reports/report_html.html reports/report_json.json reports/report_md.md
+          chmod 666 reports/report_html.html reports/report_json.json reports/report_md.md
+
+      - name: Run ZAP Baseline Scan
+        run: |
+          docker run --rm \
+            --network zapnet \
+            -v ${{ github.workspace }}/reports:/zap/wrk/:rw \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py \
+            -t http://pr7-app:5000 \
+            -J report_json.json \
+            -w report_md.md \
+            -r report_html.html \
+            -I
+
+      - name: Upload DAST reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dast-develop-report
+          path: reports/
+
+      - name: Show app logs
+        if: always()
+        run: docker logs pr7-app || true
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker rm -f pr7-app || true
+          docker network rm zapnet || true

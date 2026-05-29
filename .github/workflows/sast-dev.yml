@@ -1,0 +1,37 @@
+name: SAST Feature Branch
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+  workflow_dispatch:
+
+jobs:
+  sast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Bandit
+        run: pip install bandit
+
+      - name: Run Bandit SAST
+        run: |
+          mkdir -p reports
+          bandit -r ./PR7/app -f json -o reports/bandit-report.json || true
+          bandit -r ./PR7/app -f txt -o reports/bandit-report.txt || true
+
+      - name: Upload SAST reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sast-feature-report
+          path: reports/
