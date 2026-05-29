@@ -1,10 +1,9 @@
-name: DAST Scan
+name: DAST Develop Branch
 
 on:
   push:
-    branches: [develop]
-  pull_request:
-    branches: [develop]
+    branches:
+      - develop
   workflow_dispatch:
 
 jobs:
@@ -45,28 +44,31 @@ jobs:
           docker logs pr7-app || true
           exit 1
 
+      - name: Prepare report files
+        run: |
+          mkdir -p reports
+          touch reports/report_html.html reports/report_json.json reports/report_md.md
+          chmod 666 reports/report_html.html reports/report_json.json reports/report_md.md
+
       - name: Run ZAP Baseline Scan
         run: |
           docker run --rm \
             --network zapnet \
-            -v ${{ github.workspace }}:/zap/wrk/:rw \
+            -v ${{ github.workspace }}/reports:/zap/wrk/:rw \
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
             -t http://pr7-app:5000 \
-            -J /zap/wrk/report_json.json \
-            -w /zap/wrk/report_md.md \
-            -r /zap/wrk/report_html.html \
-            -a
+            -J report_json.json \
+            -w report_md.md \
+            -r report_html.html \
+            -I
 
-      - name: Upload ZAP report
+      - name: Upload DAST reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: zap-report
-          path: |
-            report_html.html
-            report_json.json
-            report_md.md
+          name: dast-develop-report
+          path: reports/
 
       - name: Show app logs
         if: always()
