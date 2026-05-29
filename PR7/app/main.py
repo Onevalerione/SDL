@@ -1,4 +1,9 @@
-#
+########
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import html
+import logging
 import os
 import json
 import logging
@@ -8,6 +13,8 @@ from functools import wraps
 from urllib.parse import parse_qs, quote
 from http import cookies
 from http.server import BaseHTTPRequestHandler, HTTPServer
+
+##
 
 import psycopg2
 from psycopg2 import sql
@@ -681,7 +688,6 @@ def run():
     logger.info("Подробный лог приложения: %s", LOG_FILE)
     logger.info("Лог аутентификации: %s", AUTH_LOG_FILE)
     server.serve_forever()
-
 
 if __name__ == "__main__":
     run()
