@@ -688,4 +688,6 @@ def run():
     logger.info("Подробный лог приложения: %s", LOG_FILE)
     logger.info("Лог аутентификации: %s", AUTH_LOG_FILE)
     server.serve_forever()
-##
+
+if __name__ == "__main__":
+    run()
